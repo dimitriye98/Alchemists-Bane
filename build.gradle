@@ -85,8 +85,7 @@ task('generateStartScripts') {
     }
 }
 
-task('server', type: Zip)
-{    
+task('server', type: Zip) {    
     group = 'modpack'
     description = 'Builds an server zip'
     
@@ -125,3 +124,7 @@ task('server', type: Zip)
     doLast { logger.lifecycle "Pack created: $archivePath" }
 }
 
+task('both') {
+    dependsOn 'client'
+    dependsOn 'server'
+}
