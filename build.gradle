@@ -1,0 +1,127 @@
+task('client', type: Zip) {
+    group = 'modpack'
+    description = 'Builds a technic pack zip'
+
+    // grab all this stuff.
+    from('.') {
+        include 'bin/**'
+        include 'config/**'
+        include 'coremods/**'
+        include 'mods/**'
+        include 'servers.dat'
+    }
+
+    // do not get random epty directories from which no files are included
+    includeEmptyDirs = false
+
+    // specifically into this part of the zip
+    into('mods'){ from fileTree('clientmods') }
+
+    // info output.
+    eachFile { file ->
+        logger.info "packing file $file"
+    }
+
+    destinationDir file('build/out')
+
+    archiveName 'Alchemists_Bane.zip'
+
+    // logging for no reason
+    doLast { logger.lifecycle "Pack created: $archivePath" }
+}
+
+task('serverDir') << {
+    mkdir 'build/server_temp'
+}
+
+task('downloadMinecraft', dependsOn: 'serverDir') {
+    // for gradles incremental build system
+    outputs.file "build/server_temp/minecraft_server.jar"
+    
+    doLast {
+        new File("build/server_temp/minecraft_server.jar") << "https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft_server.jar".toURL().bytes
+    }
+}
+
+task('injectJar', type: Jar) {
+    
+    // task dependancies
+    dependsOn 'serverDir'
+    dependsOn 'downloadMinecraft'
+    
+    def forgeTree = zipTree('bin/modpack.jar')
+    
+    // everything from the serveJar except the forge stuff
+    from zipTree('build/server_temp/minecraft_server.jar')
+    
+    // everything from forge
+    from forgeTree
+    
+    destinationDir file('build/server_temp')
+    
+    baseName = 'minecraft_server'
+    classifier = 'forged'
+}
+
+task('generateStartScripts') {
+    // for gradle to manage
+    outputs.file 'build/server_temp/start.bat'
+    outputs.file 'build/server_temp/start.sh'
+    
+    doLast {
+        def str = 'java -Xms512M -Xmx1G -jar minecraft_server.jar'
+        
+        ['build/server_temp/start.bat', 'build/server_temp/start.sh'].each {
+            def file = new File(it)
+            
+            // ensure parent files are made.
+            file.getParentFile().mkdirs()
+            
+            if (!file.exists())
+                file.createNewFile()
+            
+            file.write(str)
+        }
+    }
+}
+
+task('server', type: Zip)
+{    
+    group = 'modpack'
+    description = 'Builds an server zip'
+    
+    // task dependancies
+    dependsOn 'generateStartScripts'
+    dependsOn 'injectJar'
+
+    // grab all this stuff.
+    from('.') {
+        include 'config/**'
+        include 'coremods/**'
+        include 'mods/**'
+        include 'servers.dat'
+    }
+    
+    from('build/server_temp') {
+        include 'start.*'
+        include '*-forged.jar'
+    }
+    
+    // rename the server jar
+    rename('.*?-forged.jar', 'minecraft_server.jar')
+
+    // do not get random empty directories from which no files are included
+    includeEmptyDirs = false
+
+    // info output.
+    eachFile { file ->
+        logger.info "packing file $file"
+    }
+
+    destinationDir file('build/out')
+    archiveName 'Alchemists_Bane_Server.zip'
+
+    // logging for no reason
+    doLast { logger.lifecycle "Pack created: $archivePath" }
+}
+
