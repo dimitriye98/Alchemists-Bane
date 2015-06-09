@@ -31,15 +31,15 @@ task('client', type: Zip) {
 }
 
 task('serverDir') << {
-    mkdir 'build/server_temp'
+    mkdir 'build/tmp/server'
 }
 
 task('downloadMinecraft', dependsOn: 'serverDir') {
     // for gradles incremental build system
-    outputs.file "build/server_temp/minecraft_server.jar"
+    outputs.file "build/tmp/server/minecraft_server.jar"
     
     doLast {
-        new File("build/server_temp/minecraft_server.jar") << "https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft_server.jar".toURL().bytes
+        new File("build/tmp/server/minecraft_server.jar") << "https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft_server.jar".toURL().bytes
     }
 }
 
@@ -52,12 +52,12 @@ task('injectJar', type: Jar) {
     def forgeTree = zipTree('bin/modpack.jar')
     
     // everything from the serveJar except the forge stuff
-    from zipTree('build/server_temp/minecraft_server.jar')
+    from zipTree('build/tmp/server/minecraft_server.jar')
     
     // everything from forge
     from forgeTree
     
-    destinationDir file('build/server_temp')
+    destinationDir file('build/tmp/server')
     
     baseName = 'minecraft_server'
     classifier = 'forged'
@@ -65,13 +65,13 @@ task('injectJar', type: Jar) {
 
 task('generateStartScripts') {
     // for gradle to manage
-    outputs.file 'build/server_temp/start.bat'
-    outputs.file 'build/server_temp/start.sh'
+    outputs.file 'build/tmp/server/start.bat'
+    outputs.file 'build/tmp/server/start.sh'
     
     doLast {
         def str = 'java -Xms512M -Xmx1G -jar minecraft_server.jar'
         
-        ['build/server_temp/start.bat', 'build/server_temp/start.sh'].each {
+        ['build/tmp/server/start.bat', 'build/tmp/server/start.sh'].each {
             def file = new File(it)
             
             // ensure parent files are made.
@@ -101,7 +101,7 @@ task('server', type: Zip) {
         include 'servers.dat'
     }
     
-    from('build/server_temp') {
+    from('build/tmp/server') {
         include 'start.*'
         include '*-forged.jar'
     }
